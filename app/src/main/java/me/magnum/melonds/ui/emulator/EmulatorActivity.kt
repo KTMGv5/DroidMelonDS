@@ -689,7 +689,13 @@ class EmulatorActivity : AppCompatActivity() {
         if (launchArgs == null)
             return
 
-        if (viewModel.emulatorState.value.isRunning()) {
+        val currentState = viewModel.emulatorState.value
+        if (currentState.isRunning()) {
+            // If the same ROM/firmware is already running, ignore the intent
+            if (launchArgs.matchesRunningState(currentState)) {
+                return
+            }
+
             viewModel.pauseEmulator(false)
 
             activeOverlays.addActiveOverlay(EmulatorOverlay.SWITCH_NEW_ROM_DIALOG)

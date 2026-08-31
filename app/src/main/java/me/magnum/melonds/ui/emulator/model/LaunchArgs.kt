@@ -16,6 +16,15 @@ sealed class LaunchArgs {
     data class RomPath(val path: String) : LaunchArgs()
     data class Firmware(val consoleType: ConsoleType) : LaunchArgs()
 
+    fun matchesRunningState(state: EmulatorState): Boolean {
+        return when (this) {
+            is RomObject -> state is EmulatorState.RunningRom && rom.uri == state.rom.uri
+            is RomUri -> state is EmulatorState.RunningRom && uri == state.rom.uri
+            is RomPath -> state is EmulatorState.RunningRom && state.rom.uri.path == path
+            is Firmware -> state is EmulatorState.RunningFirmware && consoleType == state.console
+        }
+    }
+
     companion object {
         fun fromSavedStateHandle(savedStateHandle: SavedStateHandle): LaunchArgs? {
             return if (savedStateHandle.get<Boolean>(EmulatorActivity.KEY_BOOT_FIRMWARE_ONLY) == true) {

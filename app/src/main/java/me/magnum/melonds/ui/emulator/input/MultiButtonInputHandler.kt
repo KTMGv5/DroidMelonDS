@@ -12,6 +12,7 @@ abstract class MultiButtonInputHandler(inputListener: IInputListener, enableHapt
     private val buttonCircles = mutableListOf<ButtonCircle>()
     private val pressedInputs = mutableListOf<Input>()
     private val newPressedInputs = mutableListOf<Input>()
+    private val trackedPointerIds = mutableSetOf<Int>()
     // Reusable input list to avoid memory allocations
     private val tempInputList = mutableListOf<Input>()
 
@@ -23,12 +24,33 @@ abstract class MultiButtonInputHandler(inputListener: IInputListener, enableHapt
 
         newPressedInputs.clear()
 
-        when (event.action) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                buttonCircles.forEach {
-                    if (it.containsPoint(event.x, event.y)) {
-                        newPressedInputs.add(it.input)
-                    }
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                val downPointerIndex = event.actionIndex
+                val downX = event.getX(downPointerIndex)
+                val downY = event.getY(downPointerIndex)
+                if (isWithinViewBounds(v, downX, downY)) {
+                    trackedPointerIds.add(event.getPointerId(downPointerIndex))
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                trackedPointerIds.remove(event.getPointerId(event.actionIndex))
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                trackedPointerIds.clear()
+            }
+        }
+
+        for (pointerIndex in 0 until event.pointerCount) {
+            if (event.getPointerId(pointerIndex) !in trackedPointerIds) {
+                continue
+            }
+
+            val pointerX = event.getX(pointerIndex)
+            val pointerY = event.getY(pointerIndex)
+            buttonCircles.forEach {
+                if (it.input !in newPressedInputs && it.containsPoint(pointerX, pointerY)) {
+                    newPressedInputs.add(it.input)
                 }
             }
         }
@@ -76,6 +98,10 @@ abstract class MultiButtonInputHandler(inputListener: IInputListener, enableHapt
         buttonCircles.add(ButtonCircle(pointToLocal(256f, 512f + 36f), radiusSquared, getBottomInput()))
         buttonCircles.add(ButtonCircle(pointToLocal(256f, -36f), radiusSquared, getTopInput()))
         buttonCircles.add(ButtonCircle(pointToLocal(-36f, 256f), radiusSquared, getLeftInput()))
+    }
+
+    private fun isWithinViewBounds(view: View, x: Float, y: Float): Boolean {
+        return x >= 0f && x < view.width && y >= 0f && y < view.height
     }
 
     private data class ButtonCircle(val center: Point, val radiusSquared: Float, val input: Input) {
